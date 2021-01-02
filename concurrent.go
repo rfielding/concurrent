@@ -15,7 +15,7 @@ import (
   Given average throughput at a given load, we can calculate the Universal Scaling Law from it.
   This will let us forecast where scaling up will stop, as efficiency losses cause scaling up to slow the system down.
 
-  Spans with a count get submitted
+  Spans with a count get submitted.  This is the raw user data.  It can arrive in any order.
    start stop count load
     0 5 22 1    // from time 0 to time 5, we uploaded 22 bytes consuming 1 thread
     5 9 23 1
@@ -32,6 +32,7 @@ import (
   we can accumulate the count rate and load as we go.
   The last time that matches is the total for that time.
 
+  Calculating cumulative load, and cumulative throughput....
   a=0
      0 +  0  5 22 1   1  22/(5-0)=a    = 22/5
      5 -  0  5 22 1   1  b+22/(5-0)=c  = 22/5 - 22/5 = 0
@@ -49,7 +50,6 @@ type Dt int64
 type Load int64
 type Count int64
 
-// Arranged as a linked array, to support queueing and locality.
 type Span struct {
 	IsRange     bool
 	Start       Dt
@@ -81,6 +81,10 @@ func (m *Metrics) StopObserving(stop Dt) {
 }
 
 func (m *Metrics) Add(start Dt, stop Dt, count Count) {
+	if start >= stop {
+		// hmm... just for safety, reject calls where stop==start.  perhaps panic is too much for this
+		return
+	}
 	m.Data = append(m.Data, Span{Start: start, Stop: stop, Count: count, Load: 1, IsRange: true})
 }
 
@@ -202,6 +206,7 @@ func (m *PerformanceMetrics) ThroughputAtLoad() Answer {
 
 func (answer Answer) Write() {
 	fmt.Printf("load, throughput\n")
+	// report in milliseconds, though we clocked it in nanoseconds to prevent overlaps
 	normalizeAt1 := float64(1000000)
 	for _, a := range answer {
 		throughput := normalizeAt1 * (a.TotalWeightedThroughput / a.TotalThroughputWeight)
@@ -214,7 +219,7 @@ func ns() Dt {
 	return Dt(time.Now().UnixNano())
 }
 
-
+// A simple test to exercise the library
 func schedTest(m *Metrics) {
 	sharedBottleneckQueue := 16
 	concurrentRequests := 512

@@ -5,7 +5,7 @@ Formal queueing theory has some interesting insights, but trying to extract a mo
 Measuring service times directly is hard.  Simply simiulating a system and instrumenting the simulation, or
 measuring a real system are useful approaches to extracting insights.
 
-If instead you can simply supply task measurements, in a similar fashion to Spans (Prometheus counter and gauge),
+If instead, you can simply supply task measurements, in a similar fashion to Spans (Prometheus counter and gauge),
 it is possible to get visualizations and measurements from the data.  One of the more interesting
 measurements is the Universal Scaling Law.
 
@@ -19,7 +19,8 @@ measurements is the Universal Scaling Law.
 ![scalability.png](scalability.png)
 
 For this task.  Note that I don't simulate with sleeps, because that won't consume resources; because sleeping looks like it scales linearly because it's not doing any work.
-To instead, there is a shared queue to create some contention.  There appears to be natural cross-talk in just scheduling goroutines.
+(ie: DONT simulate loads by sleeping!  Sleeping scales much better than real work!)
+Instead, there is a shared queue to create some contention.  There appears to be natural cross-talk in just scheduling goroutines.
 
 ```go
 func schedTest(m *Metrics) {
@@ -56,6 +57,20 @@ func main() {
         m.StopObserving(ns())
         m.Calculate().ThroughputAtLoad().Write()
 }
+```
+
+A static test of the API would be more like this:
+
+```go
+        ...
+        m := NewMetrics()
+        m.StartObserving(5)
+        m.Add(10, 20, 22)  // start at 10, stop at 20, 22 things done
+        m.Add(20, 40, 20)
+        m.Add(15, 45, 33)
+        ...
+        m.StopObserving(1000)
+        m.Calculate().ThroughputAtLoad().Write()
 ```
 
 Preliminaries:
