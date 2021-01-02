@@ -18,6 +18,46 @@ measurements is the Universal Scaling Law.
 
 ![scalability.png](scalability.png)
 
+For this task.  Note that I don't simulate with sleeps, because that won't consume resources; because sleeping looks like it scales linearly because it's not doing any work.
+To instead, there is a shared queue to create some contention.  There appears to be natural cross-talk in just scheduling goroutines.
+
+```go
+func schedTest(m *Metrics) {
+        sharedBottleneckQueue := 16
+        concurrentRequests := 512
+        ch := make(chan int, sharedBottleneckQueue)
+        wg := sync.WaitGroup{}
+        for i := 0; i < concurrentRequests; i++ {
+                wg.Add(1)
+                go func() {
+                        for j := 0; j < 4; j++ {
+                                runtime.Gosched()
+                                start := ns()
+                                tasks := Count(rand.Intn(1000))
+                                for l := 0; l < int(tasks); l++ {
+                                        ch <- 5
+                                        runtime.Gosched()
+                                        _ = <-ch
+                                }
+                                finish := ns()
+                                m.Add(start, finish, tasks)
+                                runtime.Gosched()
+                        }
+                        wg.Done()
+                }()
+        }
+        wg.Wait()
+}
+
+func main() {
+        m := NewMetrics()
+        m.StartObserving(ns())
+        schedTest(m)
+        m.StopObserving(ns())
+        m.Calculate().ThroughputAtLoad().Write()
+}
+```
+
 Preliminaries:
 
 - A span is a measurement put in when a task reports progress:  `(start, stop, count, load)`, where `load==1` for observing counts going up or `load==0, count==0` for simply ensuring that all time is accounted for when measurements are being taken.
