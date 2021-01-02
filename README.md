@@ -94,7 +94,7 @@ But if you take measurements, some of these parameters are hard to fit.
 
 An interesting talk from where these diagrams come:
 
-![https://youtu.be/Hda5tMrLJqc?t=2](https://youtu.be/Hda5tMrLJqc?t=2)
+[https://youtu.be/Hda5tMrLJqc?t=2](https://youtu.be/Hda5tMrLJqc?t=2)
 
 Preliminaries:
 ================
