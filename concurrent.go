@@ -1,12 +1,14 @@
 package main
 
-import "log"
-import "fmt"
-import "sort"
-import "time"
-import "sync"
-import "math/rand"
-import "runtime"
+import (
+ "log"
+ "fmt"
+ "sort"
+ "time"
+ "sync"
+ "math/rand"
+ "runtime"
+)
 
 /**
   This supports a basic form of discrete queueing theory.
