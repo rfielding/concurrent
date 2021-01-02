@@ -16,6 +16,8 @@ measurements is the Universal Scaling Law.
 - The USL curve implicitly measures contention, which ends up being waiting in queues.  We can use this information to calculate latencies.
 - The USL curve implicitly measures coherence (cross-talk), which is caused by having to come to agreement with a percentage of all existing servers.  Coherence not only limits throughput, but it can cause adding more resources to actually decrease total throughput.  This should be familiar to anybody that works in an organization that grows from small to large. 
 
+![scalability.png](scalability.png)
+
 Preliminaries:
 
 - A span is a measurement put in when a task reports progress:  `(start, stop, count, load)`, where `load==1` for observing counts going up or `load==0, count==0` for simply ensuring that all time is accounted for when measurements are being taken.

@@ -216,12 +216,14 @@ func ns() Dt {
 
 
 func schedTest(m *Metrics) {
-	ch := make(chan int, 32)
+	sharedBottleneckQueue := 16
+	concurrentRequests := 512
+	ch := make(chan int, sharedBottleneckQueue)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 1024; i++ {
+	for i := 0; i < concurrentRequests; i++ {
 		wg.Add(1)
 		go func() {
-			for j := 0; j < 8; j++ {
+			for j := 0; j < 4; j++ {
 				runtime.Gosched()
 				start := ns()
 				tasks := Count(rand.Intn(1000))
