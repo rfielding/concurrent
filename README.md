@@ -18,6 +18,15 @@ measurements is the Universal Scaling Law.
 
 ![scalability.png](scalability.png)
 
+Which should fit curves like this, where you either get linear scalability, Amdahl's law (scalability limited by queueing), or scalability ruined by coherence.
+
+![uslcurve.png](uslcurve.png)
+
+Which is governed by this equation, detailed in papers such as this one [https://cdn2.hubspot.net/hubfs/498921/eBooks/scalability_new.pdf](https://cdn2.hubspot.net/hubfs/498921/eBooks/scalability_new.pdf)
+
+![usleq.png](usleq.png)
+
+
 For this task.  Note that I don't simulate with sleeps, because that won't consume resources; because sleeping looks like it scales linearly because it's not doing any work.
 (ie: DONT simulate loads by sleeping!  Sleeping scales much better than real work!)
 Instead, there is a shared queue to create some contention.  There appears to be natural cross-talk in just scheduling goroutines.
