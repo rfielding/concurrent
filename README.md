@@ -28,7 +28,7 @@ When a system is under observation:
 
 - The fraction of _observed_ time in which it has load greater than zero, is Utilization.  For jobs serviced against a CPU, this would be CPU utilization, a number from 0 to 1.
 - We need to keep _unobserved_ time out of metrics.  That means that we need to note when observation actually begins and ends.
-- The correct _weighted_ average is the total `count` divided by the total duration `(stop - start)`.  Keep a running total of both separately.  You cannot take averages of averages, as this will not weight them correctly.
+- The correct _weighted_ average is the total `count` divided by the total duration `(stop - start)`.  When you have concurrency, it's even more subtle than this.  There is the total duration of time for tasks that may overlap in time (the throughput you would have if there were no concurrency at all - what the datacenter is concerned with), versus total clock time (for the concurrently sped-up throughput - what the user is concerned with).  Keep a running total of both separately.  You cannot take averages of averages, as this will not weight them correctly.
 - The `count/(stop - start)` is the rate at which the counter increases.
 
 Note that:
