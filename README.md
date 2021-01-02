@@ -96,9 +96,9 @@ Note that:
 The goal is an object that has an accurate API like:
 
 - `metrics.StartObservation(start)` to begin including all time, including idle time, in calculations.
-- `metrics.AddObservation(count, stop, start)` add in observations.  This should happen while observation is actually started to properly include idle time.
+- `metrics.Add(count, stop, start)` add in observations.  This should happen while observation is actually started to properly include idle time.
 - `metrics.StopObservation(stop)`  stop collecting data.
-- 'metrics.GetThroughputVsLoad()` function to calculate throughput at observed loads.
+- 'metrics.Calculate().ThroughputAtLoad()` function to calculate throughput at observed loads.
 
 Since a count is reported after it stops, we must be able to report data out of order.  
 The whole problem with concurrency is that concurrent tasks happen in arbitrary order relative to each other, subject to scheduling.
