@@ -82,6 +82,10 @@ A static test of the API would be more like this:
         m.Calculate().ThroughputAtLoad().Write()
 ```
 
+The prediction of a curve fit is pretty good:
+
+![prediction.png](prediction.png)
+
 Preliminaries:
 
 - A span is a measurement put in when a task reports progress:  `(start, stop, count, load)`, where `load==1` for observing counts going up or `load==0, count==0` for simply ensuring that all time is accounted for when measurements are being taken.
