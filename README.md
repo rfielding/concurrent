@@ -2,7 +2,7 @@ Discrete Concurrency Library
 ===========================
 
 Formal queueing theory has some interesting insights, but trying to extract a model out of a real system is problematic.
-Measuring service times directly is hard.  Simply simiulating a system and instrumenting the simulation, or
+Measuring service times directly is hard.  Simply instrumenting a simulation, or
 measuring a real system are useful approaches to extracting insights.
 
 If instead, you can simply supply task measurements, in a similar fashion to Spans (Prometheus counter and gauge),
@@ -85,6 +85,12 @@ A static test of the API would be more like this:
 The prediction of a curve fit is pretty good:
 
 ![prediction.png](prediction.png)
+
+By contrast, see Eben Freeman's YouTube talks on this topic.  These diagrams that show the waiting times happening really well.
+But the slope at which remaining work goes to zero is equivalent to knowing the service time of a service.  If you make up a model to study it, this is no problem.
+But if you take measurements, some of these parameters are hard to fit. 
+
+![ebenwait.jpg](ebenwait.jpg)
 
 Preliminaries:
 
