@@ -86,13 +86,18 @@ The prediction of a curve fit is pretty good:
 
 ![prediction.png](prediction.png)
 
-By contrast, see Eben Freeman's YouTube talks on this topic.  These diagrams that show the waiting times happening really well.
+By contrast, see Eben Freeman's YouTube talks on this topic .  These diagrams that show the waiting times happening explain it really well.
 But the slope at which remaining work goes to zero is equivalent to knowing the service time of a service.  If you make up a model to study it, this is no problem.
 But if you take measurements, some of these parameters are hard to fit. 
 
 ![ebenwait.jpg](ebenwait.jpg)
 
+An interesting talk from where these diagrams come:
+
+![https://youtu.be/Hda5tMrLJqc?t=2](https://youtu.be/Hda5tMrLJqc?t=2)
+
 Preliminaries:
+================
 
 - A span is a measurement put in when a task reports progress:  `(start, stop, count, load)`, where `load==1` for observing counts going up or `load==0, count==0` for simply ensuring that all time is accounted for when measurements are being taken.
 - `start` is int64.
