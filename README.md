@@ -14,7 +14,7 @@ measurements is the Universal Scaling Law.
 - A curve fit to the USL will allow a forecast of where the service stops increasing throughput when it is given more load to handle.
 - Comparing the USL to linear scaling gives a direct efficiency measurement.  Given that the costs go up linearly with the number of servers handling the load, it can be calculated not only what is the maximum throughput that is possible, but at what point it is too expensive to buy minor gains in throughput.
 - The USL curve implicitly measures contention, which ends up being waiting in queues.  We can use this information to calculate latencies.
-- The USL curve implicitly measures coherence (cross-talk), which is caused by having to come to agreement with a percentage of all existing servers.  Coherence not only limits throughput, but it can cause adding more resources to actually decrease throughput. 
+- The USL curve implicitly measures coherence (cross-talk), which is caused by having to come to agreement with a percentage of all existing servers.  Coherence not only limits throughput, but it can cause adding more resources to actually decrease total throughput.  This should be familiar to anybody that works in an organization that grows from small to large. 
 
 Preliminaries:
 
