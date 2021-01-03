@@ -136,8 +136,10 @@ To see why, imagine the weighted average is for getting throughput of these even
 
 Seeing 25 events in 1 second, twice is the same as seeing 50 events in 2 seconds.
 
-If these events did not overlap in time, then the actual throughput should be the sume of total events divided by total observation time for them.
-However, we must make the distinction when there is concurrency.
+If these events did not overlap in time, then the actual throughput should be the sum of total events divided by total observation time for them.
+In this case, it would be 107 events in 11 seconds, for a throughput of 107/11.
+
+However, we must make the distinction when there is concurrency (the whole point of this library).
 
 - Assume that all three events started at time 0.  Before time 0, load is 0, at 0 events per second.
 - For 0 to 2 seconds we have `50/2 + 22/6 + 35/3` events per second happening, at load 3.
