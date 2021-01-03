@@ -116,13 +116,41 @@ Note that:
 
 - If we only report the rate, without the duration, we have no idea by how much the count increased over the duration
 - If we only report the rate and duration without a `start` time, then we cannot properly calculate _overlaps_ in the data.  Overlaps are the heart of concurrency and queueing.
+- We want properly weighted averages.  The rate reported cannot be separated from its duration.
+
+Example:
+
+An unweighted mean implies that all the time intervals were the same.  But the unweighted case is a special case of the weighted case.
+
+![unweightedaverage.png](unweightedaverage.png)
+
+It happens to be that what you really want to do is to just sum the counts in one counter, and observation time of the counts in another counter.  Only divide them when you are asked for a rate later.
+
+![weightedaverage.png](weightedaverage.png)
+
+To see why, imagine the weighted average is for getting throughput of these events:
+
+- 50 events in 2 seconds
+- 22 events in 6 seconds
+- 35 events in 3 seconds
+
+If these events did not overlap in time, then the actual throughput should be the sume of total events divided by total observation time for them.
+However, we must make the distinction when there is concurrency.
+
+- Assume that all three events started at time 0.  Before time 0, load is 0, at 0 events per second.
+- For 0 to 2 seconds we have `50/2 + 22/6 + 35/3` events per second happening, at load 3.
+- Then from 2 seconds to 3 seconds, we are at load 2 throughput of `22/6 + 35/3` events per second.
+- From 3 seconds to 6 seconds, throughput is `35/3` events per second at load 1.
+- From time 6 and into the future, it's load 0 with 0 events per second.  
+
+This is the reason that this library reports spans as a count over a time interval.  It is crucial to have `start` to calculate overlaps.  Otherwise, load and throughput would need to be reported independently; and most likely, inconsistently.
 
 The goal is an object that has an accurate API like:
 
 - `metrics.StartObservation(start)` to begin including all time, including idle time, in calculations.
 - `metrics.Add(count, stop, start)` add in observations.  This should happen while observation is actually started to properly include idle time.
 - `metrics.StopObservation(stop)`  stop collecting data.
-- 'metrics.Calculate().ThroughputAtLoad()` function to calculate throughput at observed loads.
+- `metrics.Calculate().ThroughputAtLoad()` function to calculate throughput at observed loads.
 
 Since a count is reported after it stops, we must be able to report data out of order.  
 The whole problem with concurrency is that concurrent tasks happen in arbitrary order relative to each other, subject to scheduling.
