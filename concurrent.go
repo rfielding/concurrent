@@ -51,9 +51,7 @@ type Load int64
 type Count int64
 
 type Span struct {
-	IsRange     bool
 	Start       Dt
-	IsObserving bool
 	Stop        Dt
 	Count       Count
 	Load        Load
@@ -61,6 +59,7 @@ type Span struct {
 
 type Metrics struct {
 	Data      []Span
+	observeStart Dt
 }
 
 func NewMetrics() *Metrics {
@@ -73,11 +72,11 @@ func (m *Metrics) log(mask string, args ...interface{}) {
 }
 
 func (m *Metrics) StartObserving(start Dt) {
-	m.Data = append(m.Data, Span{Start: start, IsRange: false, IsObserving: true})
+	m.observeStart = start
 }
 
 func (m *Metrics) StopObserving(stop Dt) {
-	m.Data = append(m.Data, Span{Start: stop, IsRange: false, IsObserving: false})
+	m.Data = append(m.Data, Span{Start: m.observeStart, Stop: stop, Load: 0})
 }
 
 func (m *Metrics) Add(start Dt, stop Dt, count Count) {
@@ -85,7 +84,7 @@ func (m *Metrics) Add(start Dt, stop Dt, count Count) {
 		// hmm... just for safety, reject calls where stop==start.  perhaps panic is too much for this
 		return
 	}
-	m.Data = append(m.Data, Span{Start: start, Stop: stop, Count: count, Load: 1, IsRange: true})
+	m.Data = append(m.Data, Span{Start: start, Stop: stop, Count: count, Load: 1})
 }
 
 // A span will be represented by two waypoints ... one for start, and one for stop
@@ -113,9 +112,7 @@ func (m *Metrics) Calculate() *PerformanceMetrics {
 		// We will be modifying these to distribute counter accross buckets
 		p := m.Data[i]
 		wp = append(wp, waypoint{p.Start, p})
-		if p.IsRange {
-			wp = append(wp, waypoint{p.Stop, p})
-		}
+		wp = append(wp, waypoint{p.Stop, p})
 	}
 	waypointSort := func(i, j int) bool {
 		ai := wp[i].At
@@ -135,20 +132,17 @@ func (m *Metrics) Calculate() *PerformanceMetrics {
 		} else {
 			duration = 0
 		}
-		if s.Span.IsRange {
-			loadChange := s.Span.Load
-			countChange := s.Span.Count
-			durationChange := (s.Span.Stop - s.Span.Start)
-			countRateChange := float64(countChange)/float64(durationChange)
-			if s.At == s.Span.Start {
-				countRate += countRateChange
-				load += loadChange
-			} else {
-				countRate -= countRateChange
-				load -= loadChange
-			}
+		loadChange := s.Span.Load
+		countChange := s.Span.Count
+		durationChange := (s.Span.Stop - s.Span.Start)
+		countRateChange := float64(countChange)/float64(durationChange)
+		if s.At == s.Span.Start {
+			countRate += countRateChange
+			load += loadChange
+		} else {
+			countRate -= countRateChange
+			load -= loadChange
 		}
-
 		if i+1 < len(wp) && wp[i].At == wp[i+1].At {
 			// skip it to take last value
 		} else {
