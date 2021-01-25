@@ -48,44 +48,41 @@ func (r *Reporter) InBoundsX(da, db, dg float64) bool {
 	return a >= 0 && a <= 1 && g >= 0 && b >= 0
 }
 
-func (r *Reporter) Err2f(da, db, dg float64) float64 {
+func (r *Reporter) Err2f(throughputByLoad []float64,da, db, dg float64) float64 {
 	err := float64(0)
-	W := float64(0)
-	X := float64(0)
-	n := int64(0)
-	for t := 0; t < len(r.Data)-1; t++ {
-		X += r.Data[t].ThroughputDelta
-		n += r.Data[t].LoadDelta
-		if n > 0 {
-			e := X - r.X(da, db, dg, n)
-			w := float64(r.Data[t+1].At - r.Data[t].At)
-			err += e * e * w
-			W += w
-		}
+	for n := 1; n < len(throughputByLoad); n++ {
+		e := throughputByLoad[n] - r.X(da, db, dg, int64(n))
+		err += e * e
 	}
-	return err / W
+	return math.Sqrt(err)
 }
 
-func (r *Reporter) Fit() float64 {
+func (r *Reporter) Fit(throughputByLoad []float64) float64 {
 	// Fit the parameters
-	err := r.Err2f(0, 0, 0)
-	step := 0.001
+	err := r.Err2f(throughputByLoad,0, 0, 0)
 	iterations := 1000000
+        da := float64(0)
+        db := float64(0)
+        dg := float64(0)
+        //goodGuess := false
 	for i := 0; i < iterations; i++ {
 		// try something random, and use it if it's an improvement
-		da := float64(rand.Int()%3-1) * step * err
-		db := float64(rand.Int()%3-1) * step * err
-		dg := float64(rand.Int()%3-1) * step * err
-		//fmt.Printf("da:%f, db:%f, dg: %f\n", da, db, dg)
-		err2 := r.Err2f(da, db, dg)
+                //if goodGuess == false || (rand.Int()%2)==0 {
+		da = float64(rand.Int()%3-1) * 0.0001
+		db = float64(rand.Int()%3-1) * 0.0001
+		dg = float64(rand.Int()%3-1) * 0.0001
+		//}
+		err2 := r.Err2f(throughputByLoad,da, db, dg)
 		ib := r.InBoundsX(da, db, dg)
-		//fmt.Printf("err: %f, err2: %f, step: %f\n, inbounds: %t\n",err, err2, step, ib)
+		//goodGuess = false
 		if err2 < err && ib {
 			r.Alpha += da
 			r.Beta += db
 			r.Gamma += dg
 			err = err2
+			//goodGuess = true
 		}
+		//goodGuess = false
 	}
 	return err
 }
@@ -145,8 +142,24 @@ func (r *Reporter) String() string {
 		),
 	)
 
-	errInit := r.Err2f(0, 0, 0)
-	err := r.Fit()
+	// dump a (load,throughput) graph
+	throughputByLoad := make([]float64, maxLoad+1)
+	throughputWeightByLoad := make([]float64, maxLoad+1)
+	X = r.ThroughputInit
+	n = r.LoadInit
+	for i := 0; i < len(r.Data)-1; i++ {
+		X += r.Data[i].ThroughputDelta
+		n += r.Data[i].LoadDelta
+		w := float64(r.Data[i+1].At - r.Data[i].At)
+		throughputByLoad[n] += X * w
+		throughputWeightByLoad[n] += w
+	}
+	for n := 0; n < len(throughputByLoad); n++ {
+		throughputByLoad[n] = throughputByLoad[n] / throughputWeightByLoad[n]
+	}
+
+	errInit := r.Err2f(throughputByLoad,0, 0, 0)
+	err := r.Fit(throughputByLoad)
 	result = append(
 		result,
 		fmt.Sprintf("gamma: %f", r.Gamma),
@@ -177,21 +190,6 @@ func (r *Reporter) String() string {
 		),
 	)
 
-	// dump a (load,throughput) graph
-	throughputByLoad := make([]float64, maxLoad+1)
-	throughputWeightByLoad := make([]float64, maxLoad+1)
-	X = r.ThroughputInit
-	n = r.LoadInit
-	for i := 0; i < len(r.Data)-1; i++ {
-		X += r.Data[i].ThroughputDelta
-		n += r.Data[i].LoadDelta
-		w := float64(r.Data[i+1].At - r.Data[i].At)
-		throughputByLoad[n] += X * w
-		throughputWeightByLoad[n] += w
-	}
-	for n := 0; n < len(throughputByLoad); n++ {
-		throughputByLoad[n] = throughputByLoad[n] / throughputWeightByLoad[n]
-	}
 	for n := 0; n < len(throughputByLoad); n++ {
 		result = append(
 			result,
