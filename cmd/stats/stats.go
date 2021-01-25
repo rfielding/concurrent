@@ -1,6 +1,8 @@
 package main
 
 import(
+  "runtime"
+  "sync"
   "math"
   "fmt"
   "time"
@@ -101,7 +103,7 @@ func (r *Reporter) String() string {
   n := r.LoadInit
   // Accumulate data points
   for i := 0; i < len(r.Data); i++ {
-    at := r.Data[i].At
+    //at := r.Data[i].At
     X += r.Data[i].ThroughputDelta
     n += r.Data[i].LoadDelta
     if X > maxThroughput {
@@ -122,7 +124,7 @@ func (r *Reporter) String() string {
       totalLoad += float64(n) * float64(interval)
       totalWork += X * float64(interval) 
     }
-    result = append(result, fmt.Sprintf("%d: X:%f, n:%d",at,X,n))
+    //result = append(result, fmt.Sprintf("%d: X:%f, n:%d",at,X,n))
   }
   avgThroughput := totalWork/float64(totalTime)
   result = append(
@@ -170,6 +172,34 @@ func (r *Reporter) String() string {
       XpeakEfficiency, 
     ),
   )
+
+  // dump a (load,throughput) graph
+  throughputByLoad := make([]float64, maxLoad+1)
+  throughputWeightByLoad := make([]float64, maxLoad+1)
+  X = r.ThroughputInit
+  n = r.LoadInit
+  for i := 0; i < len(r.Data)-1; i++ {
+    X += r.Data[i].ThroughputDelta
+    n += r.Data[i].LoadDelta
+    w := float64(r.Data[i+1].At - r.Data[i].At)
+    throughputByLoad[n] += X * w
+    throughputWeightByLoad[n] += w 
+  }
+  for n := 0; n < len(throughputByLoad); n++ {
+        throughputByLoad[n] = throughputByLoad[n]/throughputWeightByLoad[n]
+  }
+  for n := 0; n < len(throughputByLoad); n++ {
+    result = append(
+      result,
+      fmt.Sprintf(
+        "%d, %f",
+        n,
+        throughputByLoad[n],
+      ),
+    )
+  }
+
+  result = append(result,"")
   return strings.Join(result,"\n")
 }
 
@@ -178,7 +208,7 @@ func NewReporter() *Reporter {
 	return r
 }
 
-func (r *Reporter) Add(at int64, throughputdelta float64, loaddelta int64) {
+func (r *Reporter) At(at int64, throughputdelta float64, loaddelta int64) {
   if at < r.MinAt {
     r.MinAt = at
   }
@@ -224,49 +254,60 @@ func (r *Reporter) Add(at int64, throughputdelta float64, loaddelta int64) {
 }
 
 func (r *Reporter) Do(start int64, stop int64, throughput float64, load int64) {
-  r.Add(start, throughput, load)
-  r.Add(stop, -throughput, -load)
+  r.At(start, throughput, load)
+  r.At(stop, -throughput, -load)
 }
 
 func (r *Reporter) Begin(at int64) {
-  r.Add(at, 0, 0)
+  r.At(at, 0, 0)
 }
 
 func (r *Reporter) End(at int64) {
-  r.Add(at, 0, 0)
+  r.At(at, 0, 0)
 }
 
-func Tstamp() int64 {
-	return time.Now().UnixNano()
+
+
+// We ASSUME that we can't return the same value twice, which prevents 0 length intervals
+func mus() int64 {
+        return time.Now().UnixNano()/10000
+}
+
+// A simple test to exercise the library
+func schedTest(m *Reporter) {
+        sharedBottleneckQueue := 16
+        concurrentRequests := 512
+        ch := make(chan int, sharedBottleneckQueue)
+        wg := sync.WaitGroup{}
+        for i := 0; i < concurrentRequests; i++ {
+                wg.Add(1)
+                go func() {
+                        for j := 0; j < 4; j++ {
+                                runtime.Gosched()
+                                start := mus()
+                                tasks := rand.Intn(10000)
+                                for l := 0; l < int(tasks); l++ {
+                                        ch <- 5
+                                        runtime.Gosched()
+                                        _ = <-ch
+                                }
+                                finish := mus()
+				r := float64(tasks)/float64(finish-start)
+                                m.Do(start, finish, r, 1)
+                                runtime.Gosched()
+                        }
+                        wg.Done()
+                }()
+        }
+        wg.Wait()
 }
 
 func main() {
-  r := NewReporter()
-  r.Begin(0)        //start observing at time 0
-  r.Do(2,12, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(3,13, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(4,14, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(5,15, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(6,16, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(7,17, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(8,19, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(9,20, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(10,21, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(11,21, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.Do(12,22, 1.5,1)  //at 2..6, 1.5 throughput from 1 load
-  r.End(30)         //stop ovserving at time 10
-/*
-  r.Add(0, 0, 0)
-  r.Add(1, 1, 1)
-  r.Add(2, 1, 1)
-  r.Add(3, 1, 1)
-  r.Add(4, 1, 1)
-  r.Add(5, 1, 1)
-  r.Add(6, 1, 1)
-  r.Add(7, 1, 1)
-  r.Add(8, 1, 1)
-  r.Add(9, 1, 1)
-  r.Add(10,0, 0)
-*/
-  fmt.Printf("%v",r)
+        m := NewReporter()
+        m.Begin(mus())
+        schedTest(m)
+        m.End(mus())
+        fmt.Printf("%v",m)
 }
+
+

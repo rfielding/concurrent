@@ -21,10 +21,14 @@ print("gamma: {0}".format(u.gamma))
 plt.plot(xgrid, ygrid, 'r-', color='red',
         label='USL: gamma=%5.6f, alpha=%5.6f, beta=%5.6f'
           % (u.gamma, u.alpha, u.beta))
+
 plt.xlabel('load')
 plt.ylabel('throughput',color='red')
 plt.plot(x,y, 'r*', color='purple',label="measured")
-plt.plot(xgrid,10*ygrid/xgrid, 'r-', color='green',label='relative efficiency')
-plt.plot(xgrid,1000*(1.0+u.alpha*(xgrid-1)+u.beta*xgrid*(xgrid-1)), 'r-', color='purple',label="relative responsetime")
+
+#plt.plot(xgrid,10*ygrid/xgrid, 'r-', color='green',label='relative efficiency')
+
+#plt.plot(xgrid,1000*(1.0+u.alpha*(xgrid-1)+u.beta*xgrid*(xgrid-1)), 'r-', color='purple',label="relative responsetime")
+
 plt.legend()
 plt.show()
