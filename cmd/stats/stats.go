@@ -64,25 +64,27 @@ func (r *Reporter) Fit(throughputByLoad []float64) float64 {
         da := float64(0)
         db := float64(0)
         dg := float64(0)
-        //goodGuess := false
 	for i := 0; i < iterations; i++ {
-		// try something random, and use it if it's an improvement
-                //if goodGuess == false || (rand.Int()%2)==0 {
-		da = float64(rand.Int()%3-1) * 0.0001
-		db = float64(rand.Int()%3-1) * 0.0001
-		dg = float64(rand.Int()%3-1) * 0.0001
-		//}
+		switch( rand.Int()%3 ) {
+		case 0:
+			da = float64(rand.Int()%3-1) * 0.0001
+		case 1:
+			db = float64(rand.Int()%3-1) * 0.0001
+		case 2:
+			dg = float64(rand.Int()%3-1) * 0.001
+		}
 		err2 := r.Err2f(throughputByLoad,da, db, dg)
 		ib := r.InBoundsX(da, db, dg)
-		//goodGuess = false
 		if err2 < err && ib {
 			r.Alpha += da
 			r.Beta += db
 			r.Gamma += dg
 			err = err2
-			//goodGuess = true
+		} else {
+			da = 0
+			db = 0
+			dg = 0
 		}
-		//goodGuess = false
 	}
 	return err
 }
