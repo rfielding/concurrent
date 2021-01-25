@@ -166,6 +166,8 @@ Typically, the units for `start` and `stop` would be such that `start` and `stop
 Insights
 ============
 
+![uslpic.jpg](uslpic.jpg)
+
 An algorithm to handle this correctly would:
 
 - Periodically turn each reported span `(start, stop, count, load)` into a statistical report.
