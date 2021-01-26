@@ -1,64 +1,64 @@
 package main
 
 import (
- "log"
- "fmt"
- "sort"
- "time"
- "sync"
- "math/rand"
- "runtime"
+	"fmt"
+	"log"
+	"math/rand"
+	"runtime"
+	"sort"
+	"sync"
+	"time"
 )
 
 /**
-  This supports a basic form of discrete queueing theory.
-  Given average throughput at a given load, we can calculate the Universal Scaling Law from it.
-  This will let us forecast where scaling up will stop, as efficiency losses cause scaling up to slow the system down.
+ This supports a basic form of discrete queueing theory.
+ Given average throughput at a given load, we can calculate the Universal Scaling Law from it.
+ This will let us forecast where scaling up will stop, as efficiency losses cause scaling up to slow the system down.
 
-  Spans with a count get submitted.  This is the raw user data.  It can arrive in any order.
-   start stop count load
-    0 5 22 1    // from time 0 to time 5, we uploaded 22 bytes consuming 1 thread
-    5 9 23 1
-    6 10 18 1
+ Spans with a count get submitted.  This is the raw user data.  It can arrive in any order.
+  start stop count load
+   0 5 22 1    // from time 0 to time 5, we uploaded 22 bytes consuming 1 thread
+   5 9 23 1
+   6 10 18 1
 
-  the stop is NOT included in the range, and data MUST have stop > start
-  to prevent a zero interval.  Implicitly, the range happens twice in the data.
-  It happens on start with a positive counter, and happens again on stop with a negative counter.
+ the stop is NOT included in the range, and data MUST have stop > start
+ to prevent a zero interval.  Implicitly, the range happens twice in the data.
+ It happens on start with a positive counter, and happens again on stop with a negative counter.
 
-  Note that if a later event start subtracts an earlier start, we get an interval, just like the stop minus start interval.
-  The (count / (stop - start)) is the rate that count goes up.
+ Note that if a later event start subtracts an earlier start, we get an interval, just like the stop minus start interval.
+ The (count / (stop - start)) is the rate that count goes up.
 
-  So, when the events are double-counted by stop and start, 
-  we can accumulate the count rate and load as we go.
-  The last time that matches is the total for that time.
+ So, when the events are double-counted by stop and start,
+ we can accumulate the count rate and load as we go.
+ The last time that matches is the total for that time.
 
-  Calculating cumulative load, and cumulative throughput....
-  a=0
-     0 +  0  5 22 1   1  22/(5-0)=a    = 22/5
-     5 -  0  5 22 1   1  b+22/(5-0)=c  = 22/5 - 22/5 = 0
-     5 +  5  9 23 1   1  c+23/(9-5)=d  = 23/4
-     6 +  6 10 18 1   2  d+18/(10-6)=e = 23/4 + 18/4 = 5/4
-     9 -  5  9 23 1   1  e+23/(9-5)=f  = 23/4 + 18/4 - 23/4 = 18/4 
-    10 -  6 10 18 1   0  f+18/(10-6)=g = 18/4 - 18/4 - 0
+ Calculating cumulative load, and cumulative throughput....
+ a=0
+    0 +  0  5 22 1   1  22/(5-0)=a    = 22/5
+    5 -  0  5 22 1   1  b+22/(5-0)=c  = 22/5 - 22/5 = 0
+    5 +  5  9 23 1   1  c+23/(9-5)=d  = 23/4
+    6 +  6 10 18 1   2  d+18/(10-6)=e = 23/4 + 18/4 = 5/4
+    9 -  5  9 23 1   1  e+23/(9-5)=f  = 23/4 + 18/4 - 23/4 = 18/4
+   10 -  6 10 18 1   0  f+18/(10-6)=g = 18/4 - 18/4 - 0
 
- Notice that the load temporarily spiked to 2 due to an overlap in intervals, and that we started and ended count at 0.
- Because the load of each span we observed had a load of at least 1, the utilization is 100%, which is the fraction of time that load is not zero.
- If load for a span is 0, then its count must also be zero so that count/load is defined.
+Notice that the load temporarily spiked to 2 due to an overlap in intervals, and that we started and ended count at 0.
+Because the load of each span we observed had a load of at least 1, the utilization is 100%, which is the fraction of time that load is not zero.
+If load for a span is 0, then its count must also be zero so that count/load is defined.
 
- */
+*/
 type Dt int64
 type Load int64
 type Count int64
 
 type Span struct {
-	Start       Dt
-	Stop        Dt
-	Count       Count
-	Load        Load
+	Start Dt
+	Stop  Dt
+	Count Count
+	Load  Load
 }
 
 type Metrics struct {
-	Data      []Span
+	Data         []Span
 	observeStart Dt
 }
 
@@ -81,7 +81,7 @@ func (m *Metrics) StopObserving(stop Dt) {
 
 func (m *Metrics) Add(start Dt, stop Dt, count Count) {
 	if start >= stop {
-		// hmm... just for safety, reject calls where stop==start.  
+		// hmm... just for safety, reject calls where stop==start.
 		// perhaps panic is too much for this
 		return
 	}
@@ -91,9 +91,9 @@ func (m *Metrics) Add(start Dt, stop Dt, count Count) {
 // A span will be represented by two waypoints ... one for start, and one for stop
 
 type Section struct {
-	Start      Dt
-	Duration   Dt
-	Load       Load
+	Start     Dt
+	Duration  Dt
+	Load      Load
 	CountRate float64
 }
 
@@ -136,7 +136,7 @@ func (m *Metrics) Calculate() *PerformanceMetrics {
 		loadChange := s.Span.Load
 		countChange := s.Span.Count
 		durationChange := (s.Span.Stop - s.Span.Start)
-		countRateChange := float64(countChange)/float64(durationChange)
+		countRateChange := float64(countChange) / float64(durationChange)
 		if s.At == s.Span.Start {
 			countRate += countRateChange
 			load += loadChange
@@ -148,10 +148,10 @@ func (m *Metrics) Calculate() *PerformanceMetrics {
 			// skip it to take last value
 		} else {
 			sections = append(sections, Section{
-				Start:      s.At,
-				Load:       load,
+				Start:     s.At,
+				Load:      load,
 				CountRate: countRate,
-				Duration:   duration,
+				Duration:  duration,
 			})
 		}
 	}
@@ -160,16 +160,16 @@ func (m *Metrics) Calculate() *PerformanceMetrics {
 }
 
 type ThroughputAtLoad struct {
-	Load Load
+	Load                    Load
 	TotalWeightedThroughput float64
-	TotalThroughputWeight float64
+	TotalThroughputWeight   float64
 }
 
 type Answer []ThroughputAtLoad
 
 func (m *PerformanceMetrics) ThroughputAtLoad() Answer {
-	copied := make([]Section,len(m.Data))
-	_ = copy(copied,m.Data)
+	copied := make([]Section, len(m.Data))
+	_ = copy(copied, m.Data)
 
 	// sort the time segments to squash into average throughput
 	loadSort := func(i, j int) bool {
@@ -178,7 +178,7 @@ func (m *PerformanceMetrics) ThroughputAtLoad() Answer {
 	sort.Slice(copied, loadSort)
 	// accumulate answers that average by load
 	previousLoad := Load(-1)
-	answer := make(Answer,0)
+	answer := make(Answer, 0)
 	var a ThroughputAtLoad
 	for _, s := range copied {
 		if s.Load != previousLoad {
@@ -249,4 +249,3 @@ func main() {
 	m.StopObserving(ns())
 	m.Calculate().ThroughputAtLoad().Write()
 }
-
