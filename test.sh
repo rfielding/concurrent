@@ -1,6 +1,10 @@
 #!/bin/bash
 
-go run cmd/stats/stats.go > data2.txt
+(
+  cd cmd/stats
+  go build
+)
+./cmd/stats/stats > data2.txt
 alpha=`cat data2.txt | head -8 | grep alpha: | awk '{print $2;}'`
 beta=`cat data2.txt | head -8 | grep beta: | awk '{print $2;}'`
 gamma=`cat data2.txt | head -8 | grep gamma: | awk '{print $2;}'`
