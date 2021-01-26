@@ -187,3 +187,7 @@ Solving Parameters
 Currently, I am trying to get gradient descent to work.  But I have it backed up with random search for now.
 
 ![gd.png](gd.png)
+
+The fit I currently get from this approach looks very reasonable.
+
+![fit.png](fit.png)
