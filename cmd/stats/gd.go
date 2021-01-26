@@ -1,7 +1,13 @@
 package main
 
+type Gd struct {
+	Alpha float64
+	Beta  float64
+	Gamma float64
+}
+
 // sum_{n}{ (X[n] - X_n)^2 }/N
-func (r *Reporter) errf(da, db, dg float64, throughputByLoad []float64) float64 {
+func (r *Gd) errf(da, db, dg float64, throughputByLoad []float64) float64 {
 	err := float64(0)
 	count := int(0)
 	for ni := 1; ni < len(throughputByLoad); ni++ {
@@ -19,7 +25,7 @@ func (r *Reporter) errf(da, db, dg float64, throughputByLoad []float64) float64 
 // -sum_{n} { 2 (X[n] - X_n)(grad (X_n - X[n])) }/N
 // -sum_{n} { 2 (X[n] - X_n)(-grad X[n]) }/N
 // -1/N * sum_{n} { (X[n] - X_n) * (dXa, dXb, dXg) }
-func (r *Reporter) gradErrf(throughputByLoad []float64) (float64, float64, float64) {
+func (r *Gd) gradErrf(throughputByLoad []float64) (float64, float64, float64) {
 	da := float64(0)
 	db := float64(0)
 	dg := float64(0)
@@ -40,7 +46,7 @@ func (r *Reporter) gradErrf(throughputByLoad []float64) (float64, float64, float
 // a <= 1
 // b >= 0
 // g >= 0
-func (r *Reporter) dXa(n int64) float64 {
+func (r *Gd) dXa(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
 	g := float64(r.Gamma)
@@ -53,7 +59,7 @@ func (r *Reporter) dXa(n int64) float64 {
 // a <= 1
 // b >= 0
 // g >= 0
-func (r *Reporter) dXb(n int64) float64 {
+func (r *Gd) dXb(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
 	g := r.Gamma
@@ -63,7 +69,7 @@ func (r *Reporter) dXb(n int64) float64 {
 
 // dXg = n / (1 + a(n-1) + b n (n-1))
 // g >= 0
-func (r *Reporter) dXg(n int64) float64 {
+func (r *Gd) dXg(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
 	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
@@ -75,7 +81,7 @@ func (r *Reporter) dXg(n int64) float64 {
 // a <= 1
 // b >= 0
 // g >= 0
-func (r *Reporter) X(da, db, dg float64, n int64) float64 {
+func (r *Gd) X(da, db, dg float64, n int64) float64 {
 	a := r.Alpha + da
 	b := r.Beta + db
 	g := r.Gamma + dg

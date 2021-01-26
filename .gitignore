@@ -1,2 +1,4 @@
 ./data.txt
 ./data2.txt
+./concurrent
+./cmd/stats/stats
