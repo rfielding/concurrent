@@ -131,13 +131,13 @@ func (r *Reporter) Fit(throughputByLoad []float64) float64 {
 	r.Beta = 0.001
 	for i := 0; i < iterations; i++ {
 		da, db, dg := r.gradErrf(throughputByLoad)
-		da *= step
-		db *= step
-		dg *= step
+		da *= step *step
+		db *= step *step
+		dg *= step *step
 		err = r.errf(da, db, dg, throughputByLoad)
 		if err < lastUsedErr && r.isUsable(da,db,dg) {
-			r.Alpha += da 
-			r.Beta += db 
+			r.Alpha += da
+			r.Beta += db
 			r.Gamma += dg
 			lastUsedErr = err
 		} else {
