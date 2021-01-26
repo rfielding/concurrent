@@ -81,7 +81,8 @@ func (m *Metrics) StopObserving(stop Dt) {
 
 func (m *Metrics) Add(start Dt, stop Dt, count Count) {
 	if start >= stop {
-		// hmm... just for safety, reject calls where stop==start.  perhaps panic is too much for this
+		// hmm... just for safety, reject calls where stop==start.  
+		// perhaps panic is too much for this
 		return
 	}
 	m.Data = append(m.Data, Span{Start: start, Stop: stop, Count: count, Load: 1})

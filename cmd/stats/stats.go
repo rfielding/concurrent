@@ -16,10 +16,6 @@ type Instant struct {
 	LoadDelta       int64
 }
 
-func (i *Instant) String() string {
-	return fmt.Sprintf("%d:, dX:%f, dn:%d", i.At, i.ThroughputDelta, i.LoadDelta)
-}
-
 type Reporter struct {
 	// sorted by Data[i].At
 	Data           []Instant
@@ -33,60 +29,133 @@ type Reporter struct {
 	Gamma          float64
 }
 
-func (r *Reporter) X(da, db, dg float64, ni int64) float64 {
-	a := r.Alpha + da
-	b := r.Beta + db
-	g := r.Gamma + dg
-	n := float64(ni)
-	return (n * g) / (1 + a*(n-1) + b*n*(n-1))
-}
-
-func (r *Reporter) InBoundsX(da, db, dg float64) bool {
-	a := r.Alpha + da
-	b := r.Beta + db
-	g := r.Gamma + dg
-	return a >= 0 && a <= 1 && g >= 0 && b >= 0
-}
-
-func (r *Reporter) Err2f(throughputByLoad []float64,da, db, dg float64) float64 {
+// sum_{n}{ (X_n - X[n])^2 }/N
+func (r *Reporter) errf(da, db, dg float64, throughputByLoad []float64) float64 {
 	err := float64(0)
-	for n := 1; n < len(throughputByLoad); n++ {
-		e := throughputByLoad[n] - r.X(da, db, dg, int64(n))
-		err += e * e
+        count := int(0)
+	for ni := 1; ni < len(throughputByLoad); ni++ {
+		n := int64(ni)
+		dist := throughputByLoad[n] - r.X(da, db, dg, n)
+		err += dist * dist
+		count++
 	}
-	return math.Sqrt(err)
+	return err/float64(count)
+}
+
+// Point in the direction you must go to IMPROVE
+// -grad sum_{n}{ (X_n - X[n])^2 }/N
+// -sum_{n} { grad (X_n - X[n])^2 }/N
+// -sum_{n} { 2 (X_n - X[n])(grad (X_n - X[n])) }/N
+// -sum_{n} { 2 (X_n - X[n])(-grad X[n]) }/N
+// -sum_{n} { -2 (X_n - X[n])(grad X[n]) }/N
+// -1/N * sum_{n} { -2 (X_n - X[n]) * (dXa, dXb, dXg) }
+func (r *Reporter) gradErrf(throughputByLoad []float64) (float64, float64, float64) {
+	da := float64(0)
+	db := float64(0)
+	dg := float64(0)
+        count := int(0)
+	for ni := 1; ni < len(throughputByLoad); ni++ {
+		n := int64(ni)
+		dist := (throughputByLoad[n] - r.X(0,0,0,n))
+		da += 2 * dist * r.dXa(n)
+		db += 2 * dist * r.dXb(n)
+		dg += 2 * dist * r.dXg(n)
+		count++
+	}
+	return da/float64(count), db/float64(count), dg/float64(count)
+}
+
+// dXa = -(n g) (n-1) (1 + a (n-1) + b n (n-1))^{-2}
+// a >= 0
+// a <= 1
+// b >= 0
+// g >= 0  
+func (r *Reporter) dXa(n int64) float64 {
+	a := r.Alpha
+	b := r.Beta
+	g := float64(r.Gamma)
+	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
+	return -(float64(n) * g) * float64(n - 1) / (denominator * denominator)
+}
+
+// dXb = -(n g) n (n-1) (1 + a(n-1) + b n (n-1))^{-2}
+// a >= 0
+// a <= 1
+// b >= 0
+// g >= 0  
+func (r *Reporter) dXb(n int64) float64 {
+	a := r.Alpha
+	b := r.Beta
+	g := r.Gamma
+	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
+	return -(float64(n) * g) * float64(n * (n - 1)) / (denominator * denominator)
+}
+
+// dXg = n / (1 + a(n-1) + b n (n-1))
+// g >= 0  
+func (r *Reporter) dXg(n int64) float64 {
+	a := r.Alpha
+	b := r.Beta
+	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
+	return float64(n) / denominator
+}
+
+// X = n g / (1 + a(n-1) + b n (n-1))
+// a >= 0
+// a <= 1
+// b >= 0
+// g >= 0
+func (r *Reporter) X(da, db, dg float64, n int64) float64 {
+	a := r.Alpha + da
+	b := r.Beta + db
+	g := r.Gamma + dg
+	return (float64(n) * g) / (1 + a*float64(n-1) + b*float64(n*(n-1)))
+}
+
+func (r *Reporter) isUsable(da, db, dg float64) bool {
+	a := r.Alpha + da
+	b := r.Beta + db
+	g := r.Gamma + dg
+	return a>=0 && a<=1 && b>=0 && g>=0
 }
 
 func (r *Reporter) Fit(throughputByLoad []float64) float64 {
 	// Fit the parameters
-	err := r.Err2f(throughputByLoad,0, 0, 0)
 	iterations := 1000000
-        da := float64(0)
-        db := float64(0)
-        dg := float64(0)
+	step := float64(0.001)
+	err := r.errf(0,0,0,throughputByLoad)
+	lastUsedErr := err
+	if throughputByLoad[1] > 0 {
+		r.Gamma = throughputByLoad[1]
+	}
+	r.Alpha = 0.01
+	r.Beta = 0.001
 	for i := 0; i < iterations; i++ {
-		switch( rand.Int()%3 ) {
-		case 0:
-			da = float64(rand.Int()%3-1) * 0.0001
-		case 1:
-			db = float64(rand.Int()%3-1) * 0.0001
-		case 2:
-			dg = float64(rand.Int()%3-1) * 0.001
-		}
-		err2 := r.Err2f(throughputByLoad,da, db, dg)
-		ib := r.InBoundsX(da, db, dg)
-		if err2 < err && ib {
-			r.Alpha += da
-			r.Beta += db
+		da, db, dg := r.gradErrf(throughputByLoad)
+		da *= step
+		db *= step
+		dg *= step
+		err = r.errf(da, db, dg, throughputByLoad)
+		if err < lastUsedErr && r.isUsable(da,db,dg) {
+			r.Alpha += da 
+			r.Beta += db 
 			r.Gamma += dg
-			err = err2
+			lastUsedErr = err
 		} else {
-			da = 0
-			db = 0
-			dg = 0
+			// if that was worse, then try something random
+			da = float64(rand.Int()%11-5) * step*step
+			db = float64(rand.Int()%11-5) * step*step
+			dg = float64(rand.Int()%11-5) * step
+			err = r.errf(da, db, dg, throughputByLoad)
+			if err < lastUsedErr && r.isUsable(da,db,dg) {
+				r.Alpha += da
+				r.Beta += db
+				r.Gamma += dg
+				lastUsedErr = err
+			}
 		}
 	}
-	return err
+	return r.errf(0,0,0,throughputByLoad)
 }
 
 func (r *Reporter) String() string {
@@ -159,8 +228,7 @@ func (r *Reporter) String() string {
 	for n := 0; n < len(throughputByLoad); n++ {
 		throughputByLoad[n] = throughputByLoad[n] / throughputWeightByLoad[n]
 	}
-
-	errInit := r.Err2f(throughputByLoad,0, 0, 0)
+	errInit := r.errf(0,0,0,throughputByLoad)
 	err := r.Fit(throughputByLoad)
 	result = append(
 		result,
@@ -180,7 +248,7 @@ func (r *Reporter) String() string {
 	)
 	nPeakF := math.Sqrt((1 - r.Alpha) / r.Beta)
 	nPeak := int64(nPeakF)
-	Xpeak := r.X(0, 0, 0, nPeak)
+	Xpeak := r.X(0,0,0,nPeak)
 	XpeakEfficiency := Xpeak / (float64(nPeak) * r.Gamma)
 	result = append(
 		result,
@@ -272,7 +340,7 @@ func (r *Reporter) End(at int64) {
 
 // We ASSUME that we can't return the same value twice, which prevents 0 length intervals
 func mus() int64 {
-	return time.Now().UnixNano() / 10000
+	return time.Now().UnixNano()/100
 }
 
 // A simple test to exercise the library
@@ -294,7 +362,7 @@ func schedTest(m *Reporter) {
 					_ = <-ch
 				}
 				finish := mus()
-				r := float64(tasks) / float64(finish-start)
+				r := float64(tasks*10000) / float64(finish-start)
 				m.Do(start, finish, r, 1)
 				runtime.Gosched()
 			}
