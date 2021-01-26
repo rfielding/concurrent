@@ -27,52 +27,6 @@ type Reporter struct {
 	F              Gd
 }
 
-func (r *Reporter) isUsable(da, db, dg float64) bool {
-	a := r.F.Alpha + da
-	b := r.F.Beta + db
-	g := r.F.Gamma + dg
-	return a >= 0 && a <= 1 && b >= 0 && g >= 0
-}
-
-func (r *Reporter) Fit(throughputByLoad []float64) float64 {
-	// Fit the parameters
-	iterations := 1000000
-	step := float64(0.001)
-	err := r.F.errf(0, 0, 0, throughputByLoad)
-	lastUsedErr := err
-	if throughputByLoad[1] > 0 {
-		r.F.Gamma = throughputByLoad[1]
-	}
-	r.F.Alpha = 0.01
-	r.F.Beta = 0.001
-	for i := 0; i < iterations; i++ {
-		da, db, dg := r.F.gradErrf(throughputByLoad)
-		da *= step * step
-		db *= step * step
-		dg *= step * step
-		err = r.F.errf(da, db, dg, throughputByLoad)
-		if err < lastUsedErr && r.isUsable(da, db, dg) {
-			r.F.Alpha += da
-			r.F.Beta += db
-			r.F.Gamma += dg
-			lastUsedErr = err
-		} else {
-			// if that was worse, then try something random
-			da = float64(rand.Int()%11-5) * step * step
-			db = float64(rand.Int()%11-5) * step * step
-			dg = float64(rand.Int()%11-5) * step
-			err = r.F.errf(da, db, dg, throughputByLoad)
-			if err < lastUsedErr && r.isUsable(da, db, dg) {
-				r.F.Alpha += da
-				r.F.Beta += db
-				r.F.Gamma += dg
-				lastUsedErr = err
-			}
-		}
-	}
-	return r.F.errf(0, 0, 0, throughputByLoad)
-}
-
 func (r *Reporter) String() string {
 	result := make([]string, 0)
 	maxLoad := int64(0)
