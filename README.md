@@ -181,3 +181,9 @@ Given this, we have a sequence of `(at, throughput, load)`, where the graph `(lo
 
 This should completely characterize the measured scalability.  It tells us how much concurrency (load) was actually handled, with the ratio of `load/throughput` at any time being how efficiently resources are being used to handle the load. 
 
+Solving Parameters
+=================
+
+Currently, I am trying to get gradient descent to work.  But I have it backed up with random search for now.
+
+![gd.png](gd.png)
