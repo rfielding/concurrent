@@ -29,39 +29,41 @@ type Reporter struct {
 	Gamma          float64
 }
 
-// sum_{n}{ (X[n] - X_n)^2 }/N
-func (r *Reporter) errf(da, db, dg float64, throughputByLoad []float64) float64 {
+// sum_{n}{ (X[n] - X_i.n)^2 * w_i }/N
+func (r *Reporter) errf(da, db, dg float64) float64 {
 	err := float64(0)
-        count := int(0)
-	for ni := 1; ni < len(throughputByLoad); ni++ {
-		n := int64(ni)
-		dist := r.X(da,db,dg,n) - throughputByLoad[n]
-		err += dist * dist
-		count++
+        wTotal := float64(0)
+	n := int64(0)
+	x := float64(0)
+	for i := 0; i < len(r.Data)-1; i++ {
+		n += r.Data[i].LoadDelta
+		x += r.Data[i].ThroughputDelta
+		w := float64(r.Data[i+1].At - r.Data[i].At)
+		dist := r.X(da,db,dg,n) - x
+		err += dist * dist * w
+		wTotal += w
 	}
-	return err/float64(count)
+	return err/float64(wTotal)
 }
 
-// Point in the direction you must go to IMPROVE
-// -grad sum_{n}{ (X[n] - X_n)^2 }/N
-// -sum_{n} { grad (X[n] - X_n)^2 }/N
-// -sum_{n} { 2 (X[n] - X_n)(grad (X_n - X[n])) }/N
-// -sum_{n} { 2 (X[n] - X_n)(-grad X[n]) }/N
-// -1/N * sum_{n} { (X[n] - X_n) * (dXa, dXb, dXg) }
-func (r *Reporter) gradErrf(throughputByLoad []float64) (float64, float64, float64) {
+func (r *Reporter) gradErrf() (float64, float64, float64) {
 	da := float64(0)
 	db := float64(0)
 	dg := float64(0)
-        count := int(0)
-	for ni := 1; ni < len(throughputByLoad); ni++ {
-		n := int64(ni)
-		dist := r.X(0,0,0,n) - throughputByLoad[n]
-		da += dist * r.dXa(n)
-		db += dist * r.dXb(n)
-		dg += dist * r.dXg(n)
-		count++
+	wTotal := float64(0)
+	n := int64(0)
+	x := float64(0)
+	for i := 0; i < len(r.Data)-1; i++ {
+		n += r.Data[i].LoadDelta
+		x += r.Data[i].ThroughputDelta
+		w := float64(r.Data[i+1].At - r.Data[i].At)
+		dist := r.X(0,0,0,n) - x
+		da += dist * w * r.dXa(n)
+		db += dist * w * r.dXb(n)
+		dg += dist * w * r.dXg(n)
+		wTotal++
 	}
-	return -da/float64(count), -db/float64(count), -dg/float64(count)
+	return -da/float64(wTotal), -db/float64(wTotal), -dg/float64(wTotal)
 }
 
 // dXa = -(n g) (n-1) (1 + a (n-1) + b n (n-1))^{-2}
@@ -73,6 +75,12 @@ func (r *Reporter) dXa(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
 	g := float64(r.Gamma)
+	if a < 0 {
+		return -a;
+	}
+	if a > 1 {
+		return (1-a);
+	}
 	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
 	return -(float64(n) * g) * float64(n - 1) / (denominator * denominator)
 }
@@ -86,6 +94,9 @@ func (r *Reporter) dXb(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
 	g := r.Gamma
+	if b < 0 {
+		return -b;
+	}
 	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
 	return -(float64(n) * g) * float64(n * (n - 1)) / (denominator * denominator)
 }
@@ -95,6 +106,10 @@ func (r *Reporter) dXb(n int64) float64 {
 func (r *Reporter) dXg(n int64) float64 {
 	a := r.Alpha
 	b := r.Beta
+	g := r.Gamma
+	if g < 0 {
+		return -g;
+	}
 	denominator := (1 + a*float64(n-1) + b*float64(n*(n-1)))
 	return float64(n) / denominator
 }
@@ -118,23 +133,21 @@ func (r *Reporter) isUsable(da, db, dg float64) bool {
 	return a>=0 && a<=1 && b>=0 && g>=0
 }
 
-func (r *Reporter) Fit(throughputByLoad []float64) float64 {
+func (r *Reporter) Fit() float64 {
 	// Fit the parameters
 	iterations := 1000000
 	step := float64(0.001)
-	err := r.errf(0,0,0,throughputByLoad)
+	err := r.errf(0,0,0)
 	lastUsedErr := err
-	if throughputByLoad[1] > 0 {
-		r.Gamma = throughputByLoad[1]
-	}
+	r.Gamma = 1
 	r.Alpha = 0.01
 	r.Beta = 0.001
 	for i := 0; i < iterations; i++ {
-		da, db, dg := r.gradErrf(throughputByLoad)
+		da, db, dg := r.gradErrf()
 		da *= step
 		db *= step
 		dg *= step
-		err = r.errf(da, db, dg, throughputByLoad)
+		err = r.errf(da, db, dg)
 		if err < lastUsedErr && r.isUsable(da,db,dg) {
 			r.Alpha += da 
 			r.Beta += db 
@@ -145,7 +158,7 @@ func (r *Reporter) Fit(throughputByLoad []float64) float64 {
 			da = float64(rand.Int()%11-5) * step*step
 			db = float64(rand.Int()%11-5) * step*step
 			dg = float64(rand.Int()%11-5) * step
-			err = r.errf(da, db, dg, throughputByLoad)
+			err = r.errf(da, db, dg)
 			if err < lastUsedErr && r.isUsable(da,db,dg) {
 				r.Alpha += da
 				r.Beta += db
@@ -154,7 +167,7 @@ func (r *Reporter) Fit(throughputByLoad []float64) float64 {
 			}
 		}
 	}
-	return r.errf(0,0,0,throughputByLoad)
+	return r.errf(0,0,0)
 }
 
 func (r *Reporter) String() string {
@@ -227,8 +240,8 @@ func (r *Reporter) String() string {
 	for n := 0; n < len(throughputByLoad); n++ {
 		throughputByLoad[n] = throughputByLoad[n] / throughputWeightByLoad[n]
 	}
-	errInit := r.errf(0,0,0,throughputByLoad)
-	err := r.Fit(throughputByLoad)
+	errInit := r.errf(0,0,0)
+	err := r.Fit()
 	result = append(
 		result,
 		fmt.Sprintf("gamma: %f", r.Gamma),

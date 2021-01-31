@@ -26,7 +26,7 @@ plt.plot(xgrid, ygrid, 'r-', color='red',
 
 y2grid = (xgrid*gamma)/(1 + alpha*(xgrid-1) + beta*xgrid*(xgrid-1))
 plt.plot(xgrid, y2grid, 'r-', color='green',
-        label='USL(go): gamma=%5.6f, alpha=%5.6f, beta=%5.6f'
+        label='USL(go - weighted): gamma=%5.6f, alpha=%5.6f, beta=%5.6f'
           % (gamma, alpha, beta))
 
 if beta > 0:
